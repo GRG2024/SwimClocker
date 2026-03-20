@@ -22,6 +22,7 @@ Route::prefix('api/swim')->withoutMiddleware([\Illuminate\Foundation\Http\Middle
         Route::get('/sessions', [SwimController::class, 'index']);
         Route::get('/sessions/{session}', [SwimController::class, 'show']);
         Route::delete('/sessions/{session}', [SwimController::class, 'destroy']);
+        Route::delete('/splits/{split}', [SwimController::class, 'destroySplit']);
         Route::get('/sessions/{session}/export', [SwimController::class, 'exportSession']);
 
         Route::get('/swimmers/stats', [SwimController::class, 'swimmerStats']);

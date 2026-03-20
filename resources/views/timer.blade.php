@@ -362,14 +362,40 @@ function buildStatsHTML(names,splits){
     return h;
 }
 
-function buildSplitsTableHTML(names,splits){
+// ─── Outlier detection ───
+function detectOutliers(names,splits){
+    const outlierIds=new Set();
+    names.forEach((name,i)=>{
+        const laps=splits.filter(s=>(s.swimmer_index??s.swimmer)===i);
+        if(laps.length<3)return;
+        const times=laps.map(l=>l.lap_time_ms||l.lap).sort((a,b)=>a-b);
+        // Use IQR method
+        const q1=times[Math.floor(times.length*.25)],q3=times[Math.floor(times.length*.75)];
+        const iqr=q3-q1,lo=q1-1.8*iqr,hi=q3+1.8*iqr;
+        laps.forEach(l=>{const t=l.lap_time_ms||l.lap;if(t<lo||t>hi)outlierIds.add(l.id||`${l.round}-${l.swimmer_index??l.swimmer}`);});
+    });
+    return outlierIds;
+}
+
+function buildSplitsTableHTML(names,splits,sessionId){
+    const outliers=detectOutliers(names,splits);
     // Group by round
     const byRound={};
     splits.forEach(s=>{const r=s.round;if(!byRound[r])byRound[r]={};byRound[r][(s.swimmer_index??s.swimmer)]=s;});
     const roundNums=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
+    const editable=!!sessionId;
 
-    let h=`<div class="lbl" style="margin:16px 0 8px">Alle rondes</div>
-    <div style="max-height:300px;overflow-y:auto;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)">
+    let h='';
+    // Outlier notification
+    if(outliers.size>0&&editable){
+        h+=`<div style="margin:12px 0;padding:10px 14px;border-radius:10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">⚠️</span>
+            <div><div style="font-size:13px;font-weight:600;color:#f59e0b">${outliers.size} verdachte tijd${outliers.size>1?'en':''} gevonden</div>
+            <div style="font-size:11px;color:var(--w30)">Oranje gemarkeerd — tik om te verwijderen</div></div></div>`;
+    }
+
+    h+=`<div class="lbl" style="margin:16px 0 8px">Alle rondes</div>
+    <div style="max-height:400px;overflow-y:auto;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)">
     <table class="splits-tbl"><thead><tr><th>#</th>`;
     names.forEach((n,i)=>h+=`<th style="color:${COLORS[i%COLORS.length]}">${n}</th>`);
     h+=`<th>Totaal</th></tr></thead><tbody>`;
@@ -378,9 +404,15 @@ function buildSplitsTableHTML(names,splits){
         names.forEach((n,i)=>{
             const s=byRound[r]?.[i];
             const t=s?(s.lap_time_ms||s.lap):null;
-            h+=`<td>${t!=null?fmtSec(t/1000):'—'}</td>`;
+            const splitId=s?.id;
+            const isOutlier=splitId&&outliers.has(splitId);
+            if(t!=null&&editable&&splitId){
+                h+=`<td class="${isOutlier?'outlier':''}" style="cursor:pointer;position:relative;${isOutlier?'background:rgba(245,158,11,.12);color:#f59e0b;font-weight:700':''}" onclick="deleteSplit(${splitId},${sessionId},'${n}',${r},'${fmtSec(t/1000)}')">
+                    ${fmtSec(t/1000)}${isOutlier?'<span style="position:absolute;top:1px;right:2px;font-size:8px">⚠️</span>':''}</td>`;
+            } else {
+                h+=`<td>${t!=null?fmtSec(t/1000):'—'}</td>`;
+            }
         });
-        // Find last split in this round for cumulative
         const roundSplits=Object.values(byRound[r]||{});
         const lastTotal=roundSplits.length?Math.max(...roundSplits.map(s=>s.total_time_ms||s.total||0)):0;
         h+=`<td style="color:var(--w30)">${lastTotal?fmtLong(lastTotal):'—'}</td></tr>`;
@@ -613,8 +645,8 @@ async function loadSessionDetail(id){
                 </div>
             </div>`;
 
-        // Splits table
-        h+=buildSplitsTableHTML(names,sp);
+        // Splits table (with delete + outlier marking)
+        h+=buildSplitsTableHTML(names,sp,s.id);
 
         c.innerHTML=h;
         drawChart('chartSession',names,sp);
@@ -713,6 +745,19 @@ async function deleteSession(id,name){
         const r=await authFetch(API+'/sessions/'+id,{method:'DELETE',headers:{'Accept':'application/json'}});
         if(r.ok){showView('history');loadHistory();}
         else alert('Verwijderen mislukt');
+    }catch(e){if(e.message!=='auth')alert('Fout: '+e.message);}
+}
+
+// ─── Delete single split ───
+async function deleteSplit(splitId,sessionId,swimmer,round,time){
+    if(!confirm(`${swimmer} ronde ${round} (${time}s) verwijderen?`))return;
+    try{
+        const r=await authFetch(API+'/splits/'+splitId,{method:'DELETE',headers:{'Accept':'application/json'}});
+        if(r.ok){
+            const d=await r.json();
+            if(d.session_deleted){showView('history');loadHistory();}
+            else loadSessionDetail(sessionId);
+        } else alert('Verwijderen mislukt');
     }catch(e){if(e.message!=='auth')alert('Fout: '+e.message);}
 }
 

@@ -99,6 +99,30 @@ class SwimController extends Controller
     }
 
     /**
+     * Delete a single split and update session totals.
+     */
+    public function destroySplit(SwimSplit $split): JsonResponse
+    {
+        $session = $split->session;
+        $split->delete();
+
+        // Update session totals
+        $remaining = $session->splits()->count();
+        if ($remaining === 0) {
+            $session->delete();
+            return response()->json(['success' => true, 'session_deleted' => true]);
+        }
+
+        $session->update([
+            'total_splits' => $remaining,
+            'total_rounds' => (int) ceil($remaining / count($session->swimmers)),
+            'total_distance_m' => $remaining * 50,
+        ]);
+
+        return response()->json(['success' => true, 'session_deleted' => false]);
+    }
+
+    /**
      * Stats per swimmer across all sessions.
      * This is the core view: individual swimmer performance over time.
      */
