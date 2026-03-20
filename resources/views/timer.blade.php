@@ -716,15 +716,21 @@ async function deleteSession(id,name){
     }catch(e){if(e.message!=='auth')alert('Fout: '+e.message);}
 }
 
-// ─── Wake Lock ───
-async function acquireWL(){try{if('wakeLock'in navigator)T.wakeLock=await navigator.wakeLock.request('screen');}catch{}}
-async function releaseWL(){try{if(T.wakeLock){await T.wakeLock.release();T.wakeLock=null;}}catch{}}
+// ─── Wake Lock (always on) ───
+let globalWakeLock=null;
+async function acquireWL(){try{if('wakeLock'in navigator){globalWakeLock=await navigator.wakeLock.request('screen');}}catch{}}
+async function releaseWL(){} // never release — keep screen on
 
 // ─── Init ───
 (async function(){
     document.addEventListener('gesturestart',e=>e.preventDefault());
-    // Fetch unique ploeg number from server before creating first team
-    try{const r=await fetch(API+'/teams/next-name');if(r.ok){const d=await r.json();nextPloegNumber=d.number;}}catch{}
+    // Keep screen on — reacquire after tab switch
+    acquireWL();
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')acquireWL();});
+    // Restore ploeg number from session, or fetch new one from server
+    const stored=sessionStorage.getItem('ploegNumber');
+    if(stored){nextPloegNumber=parseInt(stored);}
+    else{try{const r=await fetch(API+'/teams/next-name');if(r.ok){const d=await r.json();nextPloegNumber=d.number;sessionStorage.setItem('ploegNumber',d.number);}}catch{}}
     addTeam();
     document.getElementById('bottomNav').style.display='flex';
     syncPending();
