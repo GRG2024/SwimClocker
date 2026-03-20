@@ -594,8 +594,11 @@ async function loadSessionDetail(id){
             <div style="font-size:14px;color:#10b981;font-weight:600;margin-bottom:8px">${s.total_splits} splits · ${s.total_rounds} rondes</div>
             <span class="dist" style="font-size:14px;padding:6px 16px">🏊 ${fmtDist(dist)} totaal</span></div>`;
 
-        // Export
-        h+=`<div style="display:flex;gap:8px;margin-bottom:16px"><a href="${API}/sessions/${id}/export" class="export-btn">📥 Export CSV</a></div>`;
+        // Export + Delete
+        h+=`<div style="display:flex;gap:8px;margin-bottom:16px">
+            <a href="${API}/sessions/${id}/export" class="export-btn">📥 Export CSV</a>
+            <button onclick="deleteSession(${s.id},'${(s.team_name||'').replace(/'/g,"\\'")}')" style="flex:1;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-size:13px;font-weight:600;cursor:pointer">🗑️ Verwijder</button>
+        </div>`;
 
         // Stats
         h+=buildStatsHTML(names,sp);
@@ -700,6 +703,16 @@ async function loadSwimmerDetail(name){
             },50);
         }
     }catch(e){c.innerHTML=`<div style="text-align:center;color:var(--w30);padding:40px 0">Fout: ${e.message}</div>`;}
+}
+
+// ─── Delete session ───
+async function deleteSession(id,name){
+    if(!confirm(`Weet je zeker dat je "${name}" wilt verwijderen? Dit kan niet ongedaan worden.`))return;
+    try{
+        const r=await authFetch(API+'/sessions/'+id,{method:'DELETE',headers:{'Accept':'application/json'}});
+        if(r.ok){showView('history');loadHistory();}
+        else alert('Verwijderen mislukt');
+    }catch(e){if(e.message!=='auth')alert('Fout: '+e.message);}
 }
 
 // ─── Wake Lock ───
