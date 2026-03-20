@@ -148,6 +148,7 @@ const ROSTER=['Chantal','Mirelle','Marleen','Jan','Deacon','Teun','Karin','Lieke
 // ─── State ───
 let teams=[],activeTeamIdx=0;
 let authed=false, pendingView=null;
+let nextPloegNumber=1;
 let T={startTime:null,startedAt:null,swimmer:0,splits:[],elapsed:0,rafId:null,lastTap:0,wakeLock:null,confirmFinish:false,finishLockedTime:null,teamName:'',names:[]};
 
 // ─── Fmt ───
@@ -158,8 +159,8 @@ const fmtDist=m=>m>=1000?`${(m/1000).toFixed(1)}km`:`${m}m`;
 const genName=n=>{const d=new Date();return`${d.getDate()} ${MONTHS[d.getMonth()]} - Ploeg ${n}`;};
 
 // ─── Teams ───
-function addTeam(){const saved=JSON.parse(localStorage.getItem('swimNames')||'null');teams.push({id:Date.now(),name:genName(teams.length+1),swimmers:saved&&saved.length?[...saved]:['Renko','Teun','Jan']});activeTeamIdx=teams.length-1;renderSetup();}
-function removeTeam(i){if(teams.length<=1)return;teams.splice(i,1);if(activeTeamIdx>=teams.length)activeTeamIdx=teams.length-1;teams.forEach((t,j)=>t.name=genName(j+1));renderSetup();}
+function addTeam(){const saved=JSON.parse(localStorage.getItem('swimNames')||'null');const num=nextPloegNumber+teams.length;teams.push({id:Date.now(),name:genName(num),ploegNum:num,swimmers:saved&&saved.length?[...saved]:['Renko','Teun','Jan']});activeTeamIdx=teams.length-1;renderSetup();}
+function removeTeam(i){if(teams.length<=1)return;teams.splice(i,1);if(activeTeamIdx>=teams.length)activeTeamIdx=teams.length-1;renderSetup();}
 function setSwimmer(ti,si,val){teams[ti].swimmers[si]=val;localStorage.setItem('swimNames',JSON.stringify(teams[ti].swimmers));renderSetup();}
 function addSwimmerSlot(){const t=teams[activeTeamIdx];const used=new Set(t.swimmers);const next=ROSTER.find(n=>!used.has(n))||'Zwemmer '+(t.swimmers.length+1);t.swimmers.push(next);renderSetup();}
 function removeSwimmerSlot(si){const t=teams[activeTeamIdx];if(t.swimmers.length<=2)return;t.swimmers.splice(si,1);renderSetup();}
@@ -720,8 +721,10 @@ async function acquireWL(){try{if('wakeLock'in navigator)T.wakeLock=await naviga
 async function releaseWL(){try{if(T.wakeLock){await T.wakeLock.release();T.wakeLock=null;}}catch{}}
 
 // ─── Init ───
-(function(){
+(async function(){
     document.addEventListener('gesturestart',e=>e.preventDefault());
+    // Fetch unique ploeg number from server before creating first team
+    try{const r=await fetch(API+'/teams/next-name');if(r.ok){const d=await r.json();nextPloegNumber=d.number;}}catch{}
     addTeam();
     document.getElementById('bottomNav').style.display='flex';
     syncPending();

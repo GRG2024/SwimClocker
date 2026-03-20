@@ -7,6 +7,7 @@ use App\Models\SwimSession;
 use App\Models\SwimSplit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class SwimController extends Controller
@@ -154,17 +155,27 @@ class SwimController extends Controller
 
     /**
      * Generate next team name for today.
+     * Uses atomic cache increment so simultaneous visitors get different numbers.
      */
     public function nextTeamName(): JsonResponse
     {
         $today = now()->format('j M');
-        $count = SwimSession::whereDate('started_at', today())
-            ->where('team_name', 'like', "{$today} - Ploeg %")
-            ->count();
+        $cacheKey = 'ploeg_counter_' . now()->format('Y-m-d');
+
+        // Initialize counter from DB if not yet set today
+        if (! Cache::has($cacheKey)) {
+            $dbCount = SwimSession::whereDate('started_at', today())
+                ->where('team_name', 'like', "{$today} - Ploeg %")
+                ->count();
+            Cache::put($cacheKey, $dbCount, now()->endOfDay());
+        }
+
+        // Atomically increment — each visitor gets a unique number
+        $number = Cache::increment($cacheKey);
 
         return response()->json([
-            'team_name' => "{$today} - Ploeg " . ($count + 1),
-            'number' => $count + 1,
+            'team_name' => "{$today} - Ploeg {$number}",
+            'number' => $number,
         ]);
     }
 

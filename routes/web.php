@@ -10,8 +10,9 @@ Route::get('/timer', fn() => view('timer'));
 // Swim API under web middleware (needs cookies for PIN auth)
 // CSRF disabled for these JSON API endpoints
 Route::prefix('api/swim')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])->group(function () {
-    // Open: timer can always save sessions
+    // Open: timer can always save sessions + get next team number
     Route::post('/sessions', [SwimController::class, 'store']);
+    Route::get('/teams/next-name', [SwimController::class, 'nextTeamName']);
 
     // PIN verification (sets cookie)
     Route::post('/auth', function () {})->middleware(SwimPinAuth::class);
@@ -27,6 +28,5 @@ Route::prefix('api/swim')->withoutMiddleware([\Illuminate\Foundation\Http\Middle
         Route::get('/swimmers/export', [SwimController::class, 'exportSwimmers']);
         Route::get('/swimmers/{name}/log', [SwimController::class, 'swimmerLog']);
 
-        Route::get('/teams/next-name', [SwimController::class, 'nextTeamName']);
     });
 });
