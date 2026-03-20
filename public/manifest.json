@@ -1,0 +1,17 @@
+{
+    "name": "Swim Timer",
+    "short_name": "SwimTimer",
+    "description": "Marathon estafette timer - 3×50m",
+    "start_url": "/timer",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0a1628",
+    "theme_color": "#0a1628",
+    "icons": [
+        {
+            "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a1628'/><text y='68' x='50' text-anchor='middle' font-size='55'>🏊</text></svg>",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}
